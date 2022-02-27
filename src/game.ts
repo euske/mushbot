@@ -276,11 +276,6 @@ class Game extends Scene {
         this.jt = Infinity;
         this.jy = 0;
         this.dying = 0;
-
-        if (this.firsttime) {
-            this.firsttime = false;
-            APP.setMusic('music', MP3_GAP, 12.0);
-        }
     }
 
     onStop() {
@@ -344,6 +339,11 @@ class Game extends Scene {
             }
         } else {
             this.jt = Infinity;
+        }
+
+        if (this.firsttime) {
+            this.firsttime = false;
+            APP.setMusic('music', MP3_GAP, 12.0);
         }
     }
 
