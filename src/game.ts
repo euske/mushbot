@@ -100,10 +100,15 @@ class Sky extends World {
             let enemy = new Enemy(pos, new Vec2(-4,0), SPRITES.get(2));
             this.add(enemy);
         }
-        if (this.game.dying == 0 && this.open) {
+        if (this.game.dying == 0 && !this.game.island && this.open) {
             let rect = this.getMouthRect().inflate(-10,-4);
+            let eaten = false;
             for (let e of this.findEntities(rect)) {
                 this.game.consume(e);
+                eaten = true;
+            }
+            if (eaten) {
+                APP.playSound('eat');
             }
         }
     }
@@ -183,12 +188,12 @@ class Land extends World {
     }
 
     landed() {
+        APP.playSound('footstep');
+        this.shaking = 10;
         let rect = new Rect(this.game.cx-40, this.cy-40, 80, 40)
         for (let e of this.findEntities(rect)) {
             this.game.consume(e);
         }
-        this.shaking = 10;
-        APP.playSound('footstep');
     }
 
     render(ctx: CanvasRenderingContext2D) {
@@ -308,7 +313,8 @@ class Game extends Scene {
                 this.flipWorld();
             }
         }
-        this.jy = Math.min(0, this.jy+1);
+        let vy = clamp(1, int((this.jt-8)/4), 3);
+        this.jy = Math.min(0, this.jy+vy);
         this.sky.onTick();
         this.land.onTick();
     }
@@ -341,7 +347,6 @@ class Game extends Scene {
             this.score += 1;
             this.highscore = Math.max(this.score, this.highscore);
             this.updateScore();
-            APP.playSound('eat');
         } else if (e instanceof Enemy) {
             this.dying = 60;
             APP.playSound('explosion');
