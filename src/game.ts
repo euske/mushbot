@@ -12,19 +12,17 @@
 //  Initialize the resources.
 let FONT: Font;
 let SPRITES:SpriteSheet;
+let BODY1:Sprite;
+let BODY2:Sprite;
 function main() {
     APP = new App(160, 160);
     FONT = new ShadowFont(APP.images['font'], 'white');
-    //SPRITES = new ImageSpriteSheet(
-    //    APP.images['sprites'], new Vec2(16,16), new Vec2(8,8));
-    SPRITES = new ArraySpriteSheet([
-        new RectSprite('#f40', new Rect(-60,-80,120,80)), // 0: upper body
-        new RectSprite('#c84', new Rect(-50,-160,100,160)), // 1: lower body
-        new RectSprite('#008', new Rect(-8,-8,16,16)),   // 2: food1
-        new RectSprite('#f00', new Rect(-8,-8,16,16)),   // 3: food2
-        new RectSprite('#fff', new Rect(-8,-8,16,16)),   // 4: enemy1
-        new RectSprite('#080', new Rect(-8,-8,16,16)),   // 5: enemy2
-    ]);
+    SPRITES = new ImageSpriteSheet(
+        APP.images['sprites'], new Vec2(16,16), new Vec2(8,8));
+    BODY1 = new ImageSprite(
+        APP.images['robot'], new Rect(0,0,140,100), new Rect(-70,-80,140,100));
+    BODY2 = new ImageSprite(
+        APP.images['robot'], new Rect(0,100,140,160), new Rect(-70,-160,140,160));
     APP.init(new Game());
 }
 
@@ -39,7 +37,7 @@ class Food extends Entity {
         super(pos);
         this.v = v;
         this.sprites = [sprite];
-        this.collider = sprite.getBounds();
+        this.collider = sprite.getBounds().inflate(-2,-2);
     }
 
     onTick() {
@@ -63,7 +61,7 @@ class Enemy extends Entity {
         super(pos);
         this.v = v;
         this.sprites = [sprite];
-        this.collider = sprite.getBounds();
+        this.collider = sprite.getBounds().inflate(-2,-2);
     }
 
     onTick() {
@@ -85,8 +83,6 @@ class Sky extends World {
     cy = 160;
     open = false;
 
-    sprite = SPRITES.get(0);
-
     constructor(game: Game) {
         super(game.screen);
         this.game = game;
@@ -94,40 +90,50 @@ class Sky extends World {
 
     onTick() {
         super.onTick();
-        if (rnd(10) == 0) {
-            let pos = new Vec2(this.area.width+8, rnd(60, 160));
-            let food = new Food(pos, new Vec2(-2,0), SPRITES.get(2));
+        if (rnd(20) == 0) {
+            let pos = new Vec2(this.area.width+4, rnd(60, 160));
+            let food = new Food(pos, new Vec2(-2,0), SPRITES.get(0));
             this.add(food);
         }
         if (rnd(100) == 0) {
-            let pos = new Vec2(this.area.width+8, rnd(60, 160));
-            let enemy = new Enemy(pos, new Vec2(-4,0), SPRITES.get(4));
+            let pos = new Vec2(this.area.width+4, rnd(60, 160));
+            let enemy = new Enemy(pos, new Vec2(-4,0), SPRITES.get(2));
             this.add(enemy);
         }
-        let x = this.game.cx;
-        let y = this.cy+this.game.jy;
-        if (this.open) {
-            let rect = new Rect(x-30, y-60, 60, 40);
+        if (this.game.dying == 0 && this.open) {
+            let rect = this.getMouthRect().inflate(-10,-4);
             for (let e of this.findEntities(rect)) {
                 this.game.consume(e);
             }
         }
     }
 
+    getMouthRect() {
+        let x = this.game.cx;
+        let y = this.cy+this.game.jy;
+        return new Rect(x-20, y-50, 70, 40);
+    }
+
     render(ctx: CanvasRenderingContext2D) {
         ctx.fillStyle = '#0066cc';
         fillRect(ctx, this.area);
-        let x = this.game.cx;
-        let y = this.cy+this.game.jy;
         ctx.save();
-        ctx.translate(x, y);
-        this.sprite.render(ctx);
-        ctx.restore();
+        ctx.translate(this.game.cx, this.cy+this.game.jy);
+        BODY1.render(ctx);
         if (this.open) {
-            let rect = new Rect(x-30, y-60, 60, 40);
             ctx.fillStyle = '#222';
-            fillRect(ctx, rect);
+            fillRect(ctx, new Rect(-20,-50,70,40));
         }
+        if (0 < this.game.dying) {
+            let sprite = SPRITES.get(4);
+            for (let i = 0; i < 3; i++) {
+                ctx.save();
+                ctx.translate(rnd(140)-70, rnd(100)-80);
+                sprite.render(ctx);
+                ctx.restore();
+            }
+        }
+        ctx.restore();
         super.render(ctx);
     }
 
@@ -144,8 +150,7 @@ class Land extends World {
     cy = 0;
     vy = +1;
     ygoal = 100;
-
-    sprite = SPRITES.get(1);
+    shaking = 0;
 
     constructor(game: Game) {
         super(game.screen);
@@ -154,7 +159,9 @@ class Land extends World {
 
     onTick() {
         super.onTick();
-        this.cy += this.vy;
+        if (this.game.dying == 0) {
+            this.cy += this.vy;
+        }
         if (0 < this.vy && this.ygoal <= this.cy) {
             this.vy = -1;
             this.ygoal = rnd(60,160);
@@ -162,23 +169,26 @@ class Land extends World {
             this.vy = +1;
             this.ygoal = rnd(60,160);
         }
-        if (rnd(10) == 0) {
-            let pos = new Vec2(this.area.width+8, rnd(this.area.height));
-            let food = new Food(pos, new Vec2(-1,0), SPRITES.get(3));
+        if (rnd(20) == 0) {
+            let pos = new Vec2(this.area.width+4, rnd(this.area.height));
+            let food = new Food(pos, new Vec2(-1,0), SPRITES.get(1));
             this.add(food);
         }
         if (rnd(100) == 0) {
-            let pos = new Vec2(this.area.width+8, rnd(this.area.height));
-            let enemy = new Enemy(pos, new Vec2(-1,0), SPRITES.get(5));
+            let pos = new Vec2(this.area.width+4, rnd(this.area.height));
+            let enemy = new Enemy(pos, new Vec2(-1,0), SPRITES.get(3));
             this.add(enemy);
         }
+        this.shaking = Math.max(0, this.shaking-1);
     }
 
     landed() {
-        let rect = new Rect(this.game.cx-50, this.cy-100, 100, 100)
+        let rect = new Rect(this.game.cx-40, this.cy-40, 80, 40)
         for (let e of this.findEntities(rect)) {
             this.game.consume(e);
         }
+        this.shaking = 10;
+        APP.playSound('footstep');
     }
 
     render(ctx: CanvasRenderingContext2D) {
@@ -186,12 +196,29 @@ class Land extends World {
         let jy = this.game.jy;
         ctx.fillStyle = '#ffcc00';
         fillRect(ctx, this.area);
+        ctx.save();
+        if (this.shaking) {
+            ctx.translate(rnd(8)-4, rnd(8)-4);
+        }
         ctx.fillStyle = '#222';
-        fillRect(ctx, new Rect(x-48, this.cy-jy/2-98, 100, 100));
+        ctx.beginPath();
+        ellipse(ctx, x, this.cy-jy/2, 50+jy/2, 30+jy/4);
+        ctx.closePath();
+        ctx.fill();
         super.render(ctx);
         ctx.save();
         ctx.translate(x, this.cy+jy*3);
-        this.sprite.render(ctx);
+        BODY2.render(ctx);
+        if (0 < this.game.dying) {
+            let sprite = SPRITES.get(4);
+            for (let i = 0; i < 3; i++) {
+                ctx.save();
+                ctx.translate(rnd(80)-40, rnd(100)-100);
+                sprite.render(ctx);
+                ctx.restore();
+            }
+        }
+        ctx.restore();
         ctx.restore();
     }
 
@@ -221,6 +248,8 @@ class Game extends Scene {
     jt = Infinity;
     jy = 0;
 
+    dying = 0;
+
     onStart() {
         super.onStart();
         this.scoreBox = new TextBox(this.screen.inflate(-4,-4), FONT);
@@ -240,32 +269,48 @@ class Game extends Scene {
 
         this.jt = Infinity;
         this.jy = 0;
+        this.dying = 0;
+    }
+
+    onStop() {
+        super.onStop();
+        this.sky.onStop();
+        this.land.onStop();
     }
 
     onTick() {
         super.onTick();
-        this.vx = clamp(-2, this.vx+this.ax, +2);
-        this.cx += this.vx;
-        if (0 < this.ax && this.xgoal <= this.cx) {
-            this.ax = -1;
-            this.xgoal = rnd(20, this.xgoal);
-        } else if (this.ax < 0 && this.cx <= this.xgoal) {
-            this.ax = +1;
-            this.xgoal = rnd(this.xgoal, 100);
-        }
-        if (this.jt < 8) {
-            this.jy -= 3;
-            this.jt++;
-        }
-        if (this.jy < 0 && -2 <= this.jy) {
-            this.land.landed();
+        if (0 < this.dying) {
+            this.dying -= 1;
+            this.cx -= 1;
+            if (this.dying == 0) {
+                this.reset();
+                return;
+            }
+        } else {
+            this.vx = clamp(-2, this.vx+this.ax, +2);
+            this.cx += this.vx;
+            if (0 < this.ax && this.xgoal <= this.cx) {
+                this.ax = -1;
+                this.xgoal = rnd(20, this.xgoal);
+            } else if (this.ax < 0 && this.cx <= this.xgoal) {
+                this.ax = +1;
+                this.xgoal = rnd(this.xgoal, 100);
+            }
+            if (this.jt < 8) {
+                this.jy -= 3;
+                this.jt++;
+            }
+            if (this.island && this.jy < 0 && -2 <= this.jy) {
+                this.land.landed();
+            }
+            if (this.nextflip < getTime()) {
+                this.flipWorld();
+            }
         }
         this.jy = Math.min(0, this.jy+1);
         this.sky.onTick();
         this.land.onTick();
-        if (this.nextflip < getTime()) {
-            this.flipWorld();
-        }
     }
 
     flipWorld() {
@@ -282,6 +327,7 @@ class Game extends Scene {
         this.sky.setAction(x);
         if (x) {
             if (this.jy == 0) {
+                APP.playSound('jump');
                 this.jt = 0;
             }
         } else {
@@ -295,7 +341,11 @@ class Game extends Scene {
             this.score += 1;
             this.highscore = Math.max(this.score, this.highscore);
             this.updateScore();
+            APP.playSound('eat');
         } else if (e instanceof Enemy) {
+            this.dying = 60;
+            APP.playSound('explosion');
+            APP.lockKeys();
         }
     }
 
