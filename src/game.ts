@@ -236,6 +236,7 @@ class Land extends World {
 //
 class Game extends Scene {
 
+    firsttime = true;
     highscore = 0;
 
     sky: Sky;
@@ -275,6 +276,11 @@ class Game extends Scene {
         this.jt = Infinity;
         this.jy = 0;
         this.dying = 0;
+
+        if (this.firsttime) {
+            this.firsttime = false;
+            APP.setMusic('music', MP3_GAP, 12.0);
+        }
     }
 
     onStop() {
