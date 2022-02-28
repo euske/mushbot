@@ -208,7 +208,6 @@ class Land extends World {
         ctx.fillStyle = '#222';
         ctx.beginPath();
         ellipse(ctx, x, this.cy-jy/2, 50+jy/2, 30+jy/4);
-        ctx.closePath();
         ctx.fill();
         super.render(ctx);
         ctx.save();
